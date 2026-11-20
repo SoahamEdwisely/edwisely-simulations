@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Sans+Condensed:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Edwisely brand: deep purple #4D2A8F */
+  --wall:#ECEAF3; --wall-2:#F5F4F9; --panel:#FFFFFF; --ink:#1E1633; --muted:#625C74; --line:#DCD7E8;
+  --accent:#4D2A8F; --accent-ink:#FFFFFF; --accent-soft:#EFEAF8;
+  --plinth:#F6F5F8; --plinth-2:#E7E5EC;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);background:var(--wall);color:var(--ink);font-size:15px;line-height:1.45;
+  display:grid;grid-template-rows:auto minmax(0,1fr);grid-template-columns:minmax(0,1fr);overflow:hidden}
+body.playing{grid-template-rows:minmax(0,1fr)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* ---------- top bar (home only) ---------- */
+header{display:flex;align-items:center;gap:12px;padding:10px 24px;background:var(--panel);border-bottom:1px solid var(--line);min-height:58px;min-width:0}
+body.playing header{display:none}
+.btn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border:1px solid var(--accent);
+  background:var(--accent);color:var(--accent-ink);border-radius:8px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{margin-left:auto;background:var(--panel);color:var(--accent)}
+.btn.ghost:hover{background:var(--accent-soft);filter:none}
+.btn:disabled{opacity:.55;cursor:default}
+body.hosted #pick,body.hosted #export{display:none}
+.btn svg{width:18px;height:18px}
+.folder-name{font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.folder-name small{display:block;font-weight:400;color:var(--muted);font-size:12.5px}
+
+/* ---------- views ---------- */
+.view{min-height:0;min-width:0}
+#home{overflow-y:auto;background:linear-gradient(180deg,var(--wall) 0%,var(--wall-2) 100%)}
+#player{position:relative;display:none;background:#fff}
+body.playing #home{display:none}
+body.playing #player{display:block}
+#player iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}
+.toast{position:absolute;left:50%;bottom:22px;transform:translate(-50%,8px);background:rgba(27,33,40,.92);color:#fff;
+  padding:7px 14px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+  white-space:nowrap;max-width:80vw;overflow:hidden;text-overflow:ellipsis;z-index:3}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast b{font-weight:600;font-variant-numeric:tabular-nums;margin-right:6px}
+
+/* ---------- home ---------- */
+.wrap{max-width:1440px;margin:0 auto;padding:32px 32px 64px}
+.intro{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.intro h1{font-family:var(--font-cond);font-weight:600;font-size:32px;margin:0;line-height:1.1}
+.intro p{margin:4px 0 0;color:var(--muted)}
+.search{width:min(340px,100%);height:40px;border:1px solid var(--line);border-radius:8px;padding:0 12px;background:var(--panel)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:34px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px;font-size:13.5px;cursor:pointer}
+.chip span{color:var(--muted);margin-left:4px;font-variant-numeric:tabular-nums}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip.on span{color:inherit;opacity:.7}
+.none{color:var(--muted);padding:30px 0}
+
+/* ---------- TV cards ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:48px 36px;--s:.22}
+.tv{display:flex;flex-direction:column;align-items:center;border:0;background:none;padding:0;cursor:pointer;text-align:left}
+.monitor{position:relative;width:100%;padding:16px 16px 40px;border-radius:26px 26px 22px 22px;
+  background:linear-gradient(165deg,#4A4540 0%,#2F2C29 48%,#221F1D 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.10),inset 0 -10px 16px rgba(0,0,0,.4),inset 0 0 0 1px rgba(0,0,0,.4),
+    0 22px 34px -16px rgba(30,22,51,.55);
+  transition:transform .25s ease,box-shadow .25s ease}
+/* chin: speaker grille, power light, two dials */
+.chin{position:absolute;left:18px;right:18px;bottom:11px;height:20px;display:flex;align-items:center;gap:10px}
+.grille{width:56px;height:12px;border-radius:3px;
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.6) 0 2px,transparent 2px 5px);opacity:.85}
+.led{width:7px;height:7px;border-radius:50%;background:#4a3a34;box-shadow:inset 0 1px 1px rgba(0,0,0,.5);margin-left:auto}
+.tv.live .led{background:#FF9F43;box-shadow:0 0 7px #FF9F43}
+.knob{width:16px;height:16px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#6A645E 0%,#3A3633 55%,#252220 100%);
+  box-shadow:0 1px 2px rgba(0,0,0,.5),inset 0 0 0 1px rgba(0,0,0,.35);position:relative}
+.knob::after{content:"";position:absolute;left:50%;top:2px;width:2px;height:5px;margin-left:-1px;border-radius:1px;background:#C9C1B8;transform-origin:50% 6px;transform:rotate(var(--k,30deg))}
+.knob + .knob{--k:-50deg}
+.tv:hover .knob:first-of-type{--k:90deg}
+.knob::after{transition:transform .4s ease}
+
+/* curved CRT glass */
+.screen{position:relative;aspect-ratio:16/10;border-radius:18px / 22px;overflow:hidden;background:#0D0B0A;
+  box-shadow:inset 0 0 0 3px #0A0908,0 0 0 2px rgba(0,0,0,.35);}
+.screen::after{ /* glass glare, scanlines and curved vignette */
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:3;border-radius:inherit;
+  background:
+    radial-gradient(ellipse 70% 45% at 28% 18%,rgba(255,255,255,.16) 0%,rgba(255,255,255,0) 70%),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.06) 0 1px,transparent 1px 3px),
+    radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.45) 100%);
+  box-shadow:inset 0 0 26px rgba(0,0,0,.55)}
+.screen::before{ /* slow rolling band, like an old set */
+  content:"";position:absolute;left:0;right:0;top:-30%;height:28%;z-index:2;pointer-events:none;
+  background:linear-gradient(180deg,transparent,rgba(255,255,255,.07) 50%,transparent);
+  animation:roll var(--rd,8s) linear var(--fdl,0s) infinite}
+@keyframes roll{from{transform:translateY(0)}to{transform:translateY(470%)}}
+/* bad-signal glitch lines, triggered at random moments from the script */
+.glitch{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
+.glitch i{position:absolute;left:-6%;right:-6%;display:block;
+  animation:jitter .32s steps(1,end) forwards}
+.glitch i.line{height:2px;background:#fff;mix-blend-mode:difference;opacity:.8}
+.glitch i.band{
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='40'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9 .08' numOctaves='2' seed='4'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.3) 50%,rgba(255,255,255,.08));
+  background-size:160px 100%,100% 100%;mix-blend-mode:difference;opacity:.6}
+.glitch i.tint{background:linear-gradient(90deg,rgba(255,40,90,.3),rgba(40,200,255,.3))}
+@keyframes jitter{
+  0%{transform:translateX(-2%);opacity:1}
+  25%{transform:translate(3%,3px);opacity:.7}
+  50%{transform:translate(-1%,-2px);opacity:1}
+  75%{transform:translateX(2%);opacity:.5}
+  100%{transform:none;opacity:0}
+}
+.screen iframe{position:absolute;left:0;top:0;width:1280px;height:800px;border:0;background:#fff;
+  transform:scale(var(--s));transform-origin:0 0;pointer-events:none;opacity:0}
+.screen iframe.on{opacity:1;animation:crtOn .55s ease-out}
+/* the old "switching on" squeeze */
+@keyframes crtOn{
+  0%{opacity:1;clip-path:inset(49.5% 0 49.5% 0);filter:brightness(3)}
+  45%{clip-path:inset(49.5% 0 49.5% 0);filter:brightness(3)}
+  75%{clip-path:inset(0 0 0 0);filter:brightness(1.6)}
+  100%{clip-path:inset(0 0 0 0);filter:none}
+}
+.idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--tone) 40%,transparent) 0%,transparent 62%),
+    repeating-radial-gradient(circle at 30% 70%,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),#0D0B0A}
+.idle span{font-family:var(--font-cond);font-weight:600;color:rgba(255,255,255,.85);font-size:15px;text-align:center;padding:0 18px;
+  text-shadow:1px 0 rgba(255,60,90,.45),-1px 0 rgba(60,200,255,.45),0 0 12px color-mix(in srgb,var(--tone) 70%,transparent)}
+.plinth{width:100%;margin-top:0;padding:16px 18px 20px;border-radius:3px;min-height:118px;
+  background:
+    radial-gradient(circle at 18% 72%,rgba(0,0,0,.06) 0 1.2px,transparent 1.6px),
+    radial-gradient(circle at 76% 30%,rgba(0,0,0,.05) 0 1px,transparent 1.4px),
+    radial-gradient(circle at 58% 84%,rgba(0,0,0,.05) 0 1.4px,transparent 1.8px),
+    linear-gradient(180deg,var(--plinth) 0%,var(--plinth-2) 100%);
+  box-shadow:inset 0 1px 0 #fff,0 14px 24px -18px rgba(18,22,28,.45)}
+.num{font-family:var(--font-cond);font-weight:500;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.plinth h3{font-family:var(--font-cond);font-weight:600;font-size:18px;line-height:1.2;margin:4px 0 4px;color:var(--ink)}
+.plinth p{margin:0;color:var(--muted);font-size:13.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.path{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.path::before{content:"";flex:none;width:8px;height:8px;border-radius:2px;background:var(--tone)}
+.tv:hover .monitor,.tv:focus-visible .monitor{transform:translateY(-4px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),inset 0 -8px 14px rgba(0,0,0,.35),0 30px 40px -18px rgba(18,22,28,.6),0 0 0 2px var(--tone)}
+
+/* ---------- empty state ---------- */
+.empty{margin:8vh auto 0;max-width:560px;border:2px dashed var(--line);border-radius:16px;text-align:center;padding:40px 24px;background:var(--panel)}
+body.drag .empty{border-color:var(--accent)}
+.empty h2{font-family:var(--font-cond);font-size:26px;margin:0 0 8px;font-weight:600}
+.empty p{margin:0 auto 20px;max-width:46ch;color:var(--muted)}
+input[type=file]{display:none}
+@media (max-width:600px){ .wrap{padding:22px 16px 48px} .intro h1{font-size:25px} header{padding:8px 14px} .grid{gap:36px} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <button class="btn" id="pick">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+    Choose folder
+  </button>
+  <div class="folder-name" id="folderName"></div>
+  <button class="btn ghost" id="export" hidden="" title="Download an index.html with this folder's simulations built in">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path></svg>
+    Export for sharing
+  </button>
+</header>
+
+<section class="view" id="home">
+  <div class="wrap" id="homeInner">
+    <div class="empty">
+      <h2>Choose a folder of simulations</h2>
+      <p>Every .html simulation in the folder and its subfolders appears here. Click one to open it, use ← → to move between them, and its “All simulations” button to come back.</p>
+      <button class="btn" id="pick2">Choose folder</button>
+      <p style="margin:14px 0 0">or drop a folder anywhere on this page</p>
+    </div>
+  </div>
+</section>
+
+<section class="view" id="player"><div class="toast" id="toast"></div></section>
+
+<input type="file" id="dirInput" webkitdirectory="" directory="" multiple="">
+
+<script id="presenter-data">window.PRESENTER_DATA = {"title":"Finalized Simulation","items":[{"rel":"Agents and Environments — Intelligent Agents.html","title":"Agents and Environments","sub":"Three robot vacuums, one room: see what memory and goals add.","crumbs":"Artificial intelligence · Intelligent agents","subject":"Artificial intelligence"},{"rel":"Bending Stress Challenge — Edwisely Labs.html","title":"Bending Stress Challenge","sub":"Predict which corners of a loaded beam are squeezed and which are stretched — then see the stress.","crumbs":"Strength of materials · Bending stress","subject":"Strength of materials"},{"rel":"c-variables (1).html","title":"C Variables in Memory","sub":"Run a C program line by line and watch its bytes.","crumbs":"Programming in C · Variables and data types","subject":"Programming in C"},{"rel":"cpu-scheduling (5).html","title":"CPU Scheduling","sub":"Race four schedulers on the same jobs and compare waiting times.","crumbs":"Operating systems · Process scheduling","subject":"Operating systems"},{"rel":"Heap Sort — The List That Is Secretly a Tree — Edwisely Labs (8).html","title":"Heap Sort","sub":"The list that is secretly a tree — watch both views move together.","crumbs":"Algorithms · Sorting","subject":"Algorithms"},{"rel":"linear-regression (1).html","title":"Linear Regression","sub":"Fit a line to data and see how each point pulls it.","crumbs":"Machine learning · Regression","subject":"Machine learning"},{"rel":"ll1-parsing.html","title":"LL(1) Predictive Parsing","sub":"Watch a table-driven parser match tokens, expand rules on its stack and build the parse tree top-down.","crumbs":"Compiler design · Syntax analysis","subject":"Compiler design"},{"rel":"llm-agent-society.html","title":"LLM Agent Society","sub":"Memory-driven AI agents spread news through a small virtual town.","crumbs":"Artificial intelligence · LLM agents","subject":"Artificial intelligence"},{"rel":"Minimax and Alpha-Beta Pruning.html","title":"Minimax and Alpha-Beta","sub":"Watch a game tree get searched — and see which branches alpha-beta skips.","crumbs":"Artificial intelligence · Adversarial search","subject":"Artificial intelligence"},{"rel":"nfa-to-dfa (1).html","title":"NFA to DFA Conversion","sub":"Build a DFA from an NFA, one subset at a time.","crumbs":"Theory of computation · Subset construction","subject":"Theory of computation"},{"rel":"PizzAI Express — Five AI Ideas.html","title":"PizzAI Express","sub":"One pizza delivery, five AI ideas, two decisions for you.","crumbs":"Artificial intelligence · AI foundations","subject":"Artificial intelligence"},{"rel":"Projectile Trials Lab — Edwisely Labs.html","title":"Projectile Trials Lab","sub":"Launch, compare trials and find the angle that flies furthest.","crumbs":"Physics · Kinematics","subject":"Physics"},{"rel":"rankine-cycle (2).html","title":"Rankine Cycle","sub":"Raise the boiler pressure and watch a steam power plant respond.","crumbs":"Thermodynamics · Vapour power cycles","subject":"Thermodynamics"},{"rel":"search-strategies (5).html","title":"BFS vs DFS vs A*","sub":"Race search strategies through one maze and compare their work and paths.","crumbs":"Artificial intelligence · Search strategies","subject":"Artificial intelligence"},{"rel":"The Attention Round Table.html","title":"The Attention Round Table","sub":"How ChatGPT-style models work out what “it” means — one dinner party at a time.","crumbs":"Artificial intelligence · Transformers","subject":"Artificial intelligence"},{"rel":"The Balancing Robot — PID Control.html","title":"The Balancing Robot","sub":"Keep a two-wheeled robot upright by tuning its P, I and D — then push it.","crumbs":"Mechanics and robotics · Feedback control","subject":"Mechanics and robotics"},{"rel":"The Mountain Hiker — Gradient Descent — Edwisely Labs.html","title":"The Mountain Hiker","sub":"Step downhill on the loss curve until the slope goes flat.","crumbs":"Machine learning · Gradient descent","subject":"Machine learning"},{"rel":"turing-machine.html","title":"Turing Machine","sub":"Watch a head read, write and move on a tape, one rule at a time, until the machine accepts or rejects.","crumbs":"Theory of computation · Turing machines","subject":"Theory of computation"}]};</script>
+<script>
+const PRISTINE = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+const $ = id => document.getElementById(id);
+const state = { items: [], order: [], assets: new Map(), assetUrls: new Map(), root: '', current: -1, filter: '', subject: 'All', homeScroll: 0 };
+const MIME = { js:'text/javascript', mjs:'text/javascript', css:'text/css', json:'application/json', svg:'image/svg+xml',
+  png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', ico:'image/x-icon',
+  mp3:'audio/mpeg', wav:'audio/wav', ogg:'audio/ogg', mp4:'video/mp4', webm:'video/webm',
+  woff:'font/woff', woff2:'font/woff2', ttf:'font/ttf', otf:'font/otf', txt:'text/plain', csv:'text/csv', wasm:'application/wasm' };
+const TONES = ['#4D2A8F','#7B4FD1','#1F8A70','#D9822B','#C2417A','#2E7DB8','#9A6B00','#5B3DB5'];
+const isHtml = p => /\.html?$/i.test(p);
+const ext = p => (p.split('.').pop() || '').toLowerCase();
+const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+const fileLabel = p => p.split('/').pop().replace(/\.html?$/i, '').replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const decodeEntities = s => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
+const strip = s => decodeEntities(s.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+const pad = n => String(n).padStart(2, '0');
+
+/* ================= loading a folder ================= */
+function cleanup() {
+  unloadAllPreviews();
+  state.items.forEach(i => i.url && !i.hosted && URL.revokeObjectURL(i.url));
+  state.assetUrls.forEach(u => URL.revokeObjectURL(u));
+  Object.assign(state, { items: [], order: [], assets: new Map(), assetUrls: new Map(), current: -1, filter: '', subject: 'All' });
+}
+
+function loadEntries(entries) {
+  entries = entries.filter(e => !e.path.split('/').some(seg => seg.startsWith('.')));
+  if (!entries.length) return;
+  closeSim(true);
+  cleanup();
+  state.root = entries[0].path.split('/')[0];
+  entries.forEach(e => state.assets.set(e.path, e.file));
+  const self = decodeURIComponent(location.pathname.split('/').pop() || '').toLowerCase();
+
+  state.items = entries
+    .filter(e => isHtml(e.path) && e.path.split('/').pop().toLowerCase() !== self)
+    .map(e => {
+      const rel = e.path.split('/').slice(1).join('/');
+      return { path: e.path, rel, file: e.file, url: null, title: fileLabel(rel), sub: '', crumbs: '', subject: 'Other', ready: false };
+    })
+    .sort((a, b) => natural(a.rel, b.rel));
+
+  $('folderName').innerHTML = `${esc(state.root)}<small>${state.items.length} simulation${state.items.length === 1 ? '' : 's'}</small>`;
+  homeBuilt = false;
+  $('export').hidden = !state.items.length;
+  renderHome();
+  readDetails();
+}
+
+// title, subtitle and subject · topic come from each simulation itself
+async function readDetails() {
+  const items = state.items, batch = 12;
+  for (let i = 0; i < items.length; i += batch) {
+    if (items !== state.items) return;
+    const slice = items.slice(i, i + batch);
+    await Promise.all(slice.map(async it => {
+      try {
+        const html = await it.file.text();
+        const h1 = html.match(/<h1[^>]*class="[^"]*lab-title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i);
+        const sub = html.match(/<p[^>]*class="[^"]*lab-sub[^"]*"[^>]*>([\s\S]*?)<\/p>/i);
+        const crumbs = html.match(/<span[^>]*class="[^"]*lab-crumbs__path[^"]*"[^>]*>([\s\S]*?<\/b>)/i);
+        const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        const desc = html.match(/<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["']/i);
+        it.title = h1 ? strip(h1[1]) : title ? (strip(title[1]).replace(/\s*[—–-]\s*Edwisely Labs\s*$/i, '') || it.title) : it.title;
+        it.sub = sub ? strip(sub[1]) : desc ? decodeEntities(desc[1]) : '';
+        it.crumbs = crumbs ? strip(crumbs[1]) : '';
+        it.subject = it.crumbs ? (it.crumbs.split('·')[0].trim() || 'Other') : 'Other';
+      } catch {}
+      it.ready = true;
+    }));
+    if (items !== state.items) return;
+    slice.forEach(updateCard);
+    drawChips(); updateCount();
+  }
+  drawCards();   // final pass so subject filtering and order are exact
+}
+
+/* ================= home page ================= */
+function toneFor(subject) {
+  if (subject === 'Other') return '#7C8894';
+  let h = 0; for (const c of subject) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return TONES[h % TONES.length];
+}
+
+let homeBuilt = false;
+function renderHome() {
+  const inner = $('homeInner');
+  if (!state.items.length) {
+    inner.innerHTML = `<div class="empty"><h2>No simulations found</h2>
+      <p>“${esc(state.root)}” has no .html files. Choose another folder.</p>
+      <button class="btn" onclick="pick()">Choose folder</button></div>`;
+    homeBuilt = false; return;
+  }
+  if (!homeBuilt) {
+    inner.innerHTML = `
+      <div class="intro">
+        <div><h1>${esc(state.root)}</h1><p id="countLine"></p></div>
+        <input class="search" id="search" type="search" placeholder="Search simulations" aria-label="Search simulations">
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="grid" id="grid"></div>`;
+    $('search').addEventListener('input', e => { state.filter = e.target.value.trim().toLowerCase(); drawCards(); });
+    homeBuilt = true;
+    gridRO.observe($('grid'));
+  }
+  drawChips(); drawCards();
+}
+
+function drawChips() {
+  const chips = $('chips'); if (!chips) return;
+  const counts = {};
+  state.items.forEach(it => counts[it.subject] = (counts[it.subject] || 0) + 1);
+  const subjects = Object.keys(counts).sort((a, b) => a === 'Other' ? 1 : b === 'Other' ? -1 : natural(a, b));
+  if (subjects.length < 2) { chips.innerHTML = ''; return; }
+  if (!counts[state.subject]) state.subject = 'All';
+  chips.innerHTML = ['All', ...subjects].map(s =>
+    `<button class="chip${s === state.subject ? ' on' : ''}" data-s="${esc(s)}">${esc(s)}<span>${s === 'All' ? state.items.length : counts[s]}</span></button>`).join('');
+  chips.querySelectorAll('.chip').forEach(b => b.onclick = () => { state.subject = b.dataset.s; drawChips(); drawCards(); });
+}
+
+const matches = it => (state.subject === 'All' || it.subject === state.subject) &&
+  (!state.filter || `${it.title} ${it.sub} ${it.crumbs} ${it.rel}`.toLowerCase().includes(state.filter));
+
+function updateCount() {
+  const line = $('countLine'); if (!line) return;
+  const pending = state.items.filter(it => !it.ready).length;
+  line.textContent = `${state.order.length} of ${state.items.length} simulations` +
+    (pending ? ` · reading details ${state.items.length - pending}/${state.items.length}` : '');
+}
+
+function cardInner(it, i) {
+  return `
+    <div class="monitor">
+      <div class="screen" inert><div class="idle"><span>${esc(it.title)}</span></div><div class="glitch"></div></div>
+      <div class="chin"><span class="grille"></span><span class="led"></span><span class="knob"></span><span class="knob"></span></div>
+    </div>
+    <div class="plinth">
+      <div class="num">${pad(i + 1)}</div>
+      <h3>${esc(it.title)}</h3>
+      ${it.sub ? `<p>${esc(it.sub)}</p>` : ''}
+      <div class="path">${esc(it.crumbs || it.rel)}</div>
+    </div>`;
+}
+
+function drawCards() {
+  const grid = $('grid'); if (!grid) return;
+  unloadAllPreviews();
+  state.order = state.items.map((it, i) => i).filter(i => matches(state.items[i]));
+  updateCount();
+  if (!state.order.length) { grid.innerHTML = '<div class="none">Nothing matches that search.</div>'; return; }
+  grid.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  state.order.forEach(i => {
+    const it = state.items[i];
+    const b = document.createElement('button');
+    b.className = 'tv'; b.dataset.i = i; b.title = it.rel;
+    b.style.setProperty('--tone', toneFor(it.subject));
+    b.style.setProperty('--fdl', (-Math.random() * 12).toFixed(1) + 's');
+    b.style.setProperty('--rd', (6 + Math.random() * 5).toFixed(1) + 's');
+    b.innerHTML = cardInner(it, i);
+    frag.appendChild(b);
+  });
+  grid.appendChild(frag);
+  grid.querySelectorAll('.tv').forEach(c => previewIO.observe(c));
+  fitScreens();
+}
+
+// fill in a card's text once its details are read, without disturbing its preview
+function updateCard(it) {
+  const i = state.items.indexOf(it);
+  const card = document.querySelector(`.tv[data-i="${i}"]`);
+  if (!card) return;
+  card.style.setProperty('--tone', toneFor(it.subject));
+  card.querySelector('.idle span').textContent = it.title;
+  const plinth = card.querySelector('.plinth');
+  plinth.innerHTML = `<div class="num">${pad(i + 1)}</div><h3>${esc(it.title)}</h3>${it.sub ? `<p>${esc(it.sub)}</p>` : ''}<div class="path">${esc(it.crumbs || it.rel)}</div>`;
+}
+
+$('home').addEventListener('click', e => {
+  const card = e.target.closest('.tv');
+  if (card) openSim(+card.dataset.i);
+});
+
+/* ================= live previews on the TV screens ================= */
+const gridRO = new ResizeObserver(fitScreens);
+function fitScreens() {
+  const grid = $('grid'), s = grid && grid.querySelector('.screen');
+  if (s && s.clientWidth) grid.style.setProperty('--s', s.clientWidth / 1280);
+}
+
+const preview = { queue: [], running: 0, live: new Set(), MAX_RUNNING: 2, MAX_LIVE: 16 };
+const previewIO = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    const card = e.target;
+    if (e.isIntersecting) { clearTimeout(card._off); if (!card._frame && !preview.queue.includes(card)) { preview.queue.push(card); pump(); } }
+    else {
+      preview.queue = preview.queue.filter(c => c !== card);
+      clearTimeout(card._off);
+      card._off = setTimeout(() => unloadPreview(card), 1500);
+    }
+  }
+}, { root: $('home'), rootMargin: '150px 0px' });
+
+async function pump() {
+  while (preview.running < preview.MAX_RUNNING && preview.queue.length) {
+    const card = preview.queue.shift();
+    if (!card.isConnected || card._frame) continue;
+    preview.running++;
+    loadPreview(card).finally(() => { preview.running--; pump(); });
+  }
+}
+
+async function loadPreview(card) {
+  const it = state.items[+card.dataset.i];
+  if (!it) return;
+  const url = await urlFor(it);
+  if (!card.isConnected || document.body.classList.contains('playing')) return;
+  // keep memory in check: drop the oldest preview that is off screen
+  if (preview.live.size >= preview.MAX_LIVE) {
+    const r = $('home').getBoundingClientRect();
+    for (const c of preview.live) {
+      const b = c.getBoundingClientRect();
+      if (b.bottom < r.top || b.top > r.bottom) { unloadPreview(c); break; }
+    }
+  }
+  const f = document.createElement('iframe');
+  f.tabIndex = -1; f.setAttribute('aria-hidden', 'true'); f.loading = 'eager';
+  card._frame = f; preview.live.add(card);
+  card.querySelector('.screen').appendChild(f);
+  await new Promise(res => {
+    const t = setTimeout(res, 5000);
+    f.addEventListener('load', () => { clearTimeout(t); setTimeout(res, 250); }, { once: true });
+    f.src = url;
+  });
+  if (card._frame === f) { f.classList.add('on'); card.classList.add('live'); }
+}
+
+function unloadPreview(card) {
+  if (card._frame) { card._frame.remove(); card._frame = null; }
+  card.classList.remove('live');
+  preview.live.delete(card);
+}
+function unloadAllPreviews() {
+  preview.queue = [];
+  preview.live.forEach(c => unloadPreview(c));
+  previewIO.disconnect();
+}
+
+/* ================= bad-signal glitches ================= */
+const rnd = (a, b) => a + Math.random() * (b - a);
+function glitch(card) {
+  const layer = card.querySelector('.glitch');
+  if (!layer || layer.childElementCount) return;
+  const kinds = ['band', 'line', 'line'];
+  if (Math.random() < .5) kinds.push('tint');
+  if (Math.random() < .4) kinds.push('band');
+  kinds.forEach(k => {
+    const el = document.createElement('i');
+    el.className = k;
+    el.style.top = rnd(4, 92).toFixed(1) + '%';
+    if (k === 'band') el.style.height = rnd(5, 16).toFixed(0) + '%';
+    if (k === 'tint') el.style.height = rnd(2, 6).toFixed(0) + '%';
+    el.style.animationDelay = rnd(0, 90).toFixed(0) + 'ms';
+    el.style.animationDuration = rnd(220, 420).toFixed(0) + 'ms';
+    layer.appendChild(el);
+  });
+  setTimeout(() => layer.replaceChildren(), 600);
+}
+(function glitchLoop() {
+  setTimeout(glitchLoop, rnd(700, 1800));
+  if (document.hidden || document.body.classList.contains('playing')) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const home = $('home').getBoundingClientRect();
+  const visible = [...document.querySelectorAll('.tv')].filter(c => {
+    const r = c.getBoundingClientRect(); return r.bottom > home.top && r.top < home.bottom;
+  });
+  if (visible.length) glitch(visible[Math.floor(Math.random() * visible.length)]);
+})();
+
+/* ================= turning a file into a playable page ================= */
+// runs inside every simulation: its "All simulations" button goes home, ← → move between simulations
+function presenterHook() {
+  function isBack(el) {
+    var a = el && el.closest && el.closest('a,button,[role="button"]');
+    if (!a) return false;
+    if (a.classList.contains('lab-back')) return true;
+    return /^\W*all simulations\W*$/i.test((a.textContent || '').trim());
+  }
+  function send(msg) { try { parent.postMessage({ presenter: msg }, '*'); } catch (e) {} }
+  window.addEventListener('click', function (e) {
+    if (isBack(e.target)) { e.preventDefault(); e.stopImmediatePropagation(); send('home'); }
+  }, true);
+  window.addEventListener('keydown', function (e) {
+    if ((e.key === 'Enter' || e.key === ' ') && isBack(e.target)) { e.preventDefault(); send('home'); }
+  }, true);
+  // registered before the simulation's own scripts, so ← → switch simulations first
+  window.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    send(e.key === 'ArrowRight' ? 'next' : 'prev');
+  }, true);
+}
+const HOOK = '<script>(' + presenterHook.toString() + ')();<\/script>';
+
+function resolveAsset(dirParts, val) {
+  if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#|\/)/i.test(val) || val.includes('${')) return null;
+  const clean = val.split(/[?#]/)[0];
+  if (!clean) return null;
+  const parts = [...dirParts];
+  let decoded; try { decoded = decodeURIComponent(clean); } catch { decoded = clean; }
+  for (const seg of decoded.split('/')) { if (seg === '..') parts.pop(); else if (seg && seg !== '.') parts.push(seg); }
+  const p = parts.join('/');
+  if (isHtml(p)) return null;
+  const f = state.assets.get(p);
+  if (!f) return null;
+  if (!state.assetUrls.has(p)) state.assetUrls.set(p, URL.createObjectURL(new Blob([f], { type: MIME[ext(p)] || f.type || '' })));
+  return state.assetUrls.get(p);
+}
+
+async function urlFor(item) {
+  if (item.url) return item.url;   // hosted: a plain relative link
+  let html = await item.file.text();
+  const dirParts = item.path.split('/').slice(0, -1);
+  html = html.replace(/(\s(?:src|href|poster|data)\s*=\s*)(["'])([^"']+)\2/gi, (m, pre, q, val) => {
+    const u = resolveAsset(dirParts, val.trim()); return u ? pre + q + u + q : m;
+  });
+  html = html.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/gi, (m, q, val) => {
+    const u = resolveAsset(dirParts, val.trim()); return u ? `url("${u}")` : m;
+  });
+  html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + HOOK) : HOOK + html;
+  item.url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  return item.url;
+}
+
+/* ================= opening, moving, closing ================= */
+let frame = null, toastTimer = null;
+async function openSim(i, { replace = false } = {}) {
+  const item = state.items[i];
+  if (!item) return;
+  if (!document.body.classList.contains('playing')) state.homeScroll = $('home').scrollTop;
+  state.current = i;
+  const url = await urlFor(item);
+  if (state.current !== i) return;
+  if (frame) frame.remove();
+  frame = document.createElement('iframe');
+  frame.title = item.title;
+  frame.allow = 'fullscreen; clipboard-read; clipboard-write; autoplay';
+  frame.addEventListener('load', () => {
+    try {
+      if (item.hosted) {
+        const d = frame.contentDocument, sc = d.createElement('script');
+        sc.textContent = '(' + presenterHook.toString() + ')();';
+        (d.head || d.documentElement).appendChild(sc);
+      }
+      frame.contentWindow.focus();
+    } catch {}
+  });
+  frame.src = url;
+  $('player').appendChild(frame);
+  document.body.classList.add('playing');
+  unloadAllPreviews();
+  document.title = item.title;
+  if (replace) history.replaceState({ sim: i }, '', '#sim'); else history.pushState({ sim: i }, '', '#sim');
+  const pos = navOrder().indexOf(i);
+  if (replace) showToast(`<b>${pos + 1} / ${navOrder().length}</b>${esc(item.title)}`);
+}
+
+const navOrder = () => (state.order.includes(state.current) ? state.order : state.items.map((_, i) => i));
+
+function step(dir) {
+  if (state.current < 0) return;
+  const order = navOrder(), pos = order.indexOf(state.current), next = pos + dir;
+  if (next < 0) return showToast('This is the first simulation');
+  if (next >= order.length) return showToast('This is the last simulation');
+  openSim(order[next], { replace: true });
+}
+
+function showToast(html) {
+  const t = $('toast');
+  t.innerHTML = html; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+function closeSim(silent) {
+  if (frame) { frame.remove(); frame = null; }
+  if (!document.body.classList.contains('playing')) return;
+  document.body.classList.remove('playing');
+  document.title = 'Simulations';
+  state.current = -1;
+  if (!silent) requestAnimationFrame(() => {
+    $('home').scrollTop = state.homeScroll;
+    document.querySelectorAll('.tv').forEach(c => previewIO.observe(c));
+  });
+}
+
+function goHome() {
+  if (history.state && history.state.sim != null) history.back();
+  else closeSim();
+}
+addEventListener('popstate', () => closeSim());
+
+addEventListener('message', e => {
+  if (!frame || e.source !== frame.contentWindow || !e.data) return;
+  if (e.data.presenter === 'home') goHome();
+  else if (e.data.presenter === 'next') step(1);
+  else if (e.data.presenter === 'prev') step(-1);
+});
+
+addEventListener('keydown', e => {
+  if (!document.body.classList.contains('playing')) return;
+  if (e.target.matches && e.target.matches('input, textarea, select')) return;
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+});
+
+/* ================= choosing a folder ================= */
+function pick() { $('dirInput').click(); }
+$('pick').onclick = pick; $('pick2').onclick = pick;
+$('dirInput').onchange = e => {
+  const files = [...e.target.files];
+  if (files.length) loadEntries(files.map(f => ({ path: f.webkitRelativePath || f.name, file: f })));
+  e.target.value = '';
+};
+
+async function readEntry(entry, out) {
+  if (entry.isFile) {
+    const file = await new Promise((res, rej) => entry.file(res, rej));
+    out.push({ path: entry.fullPath.replace(/^\//, ''), file });
+  } else if (entry.isDirectory) {
+    const reader = entry.createReader();
+    let batch;
+    do {
+      batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+      for (const child of batch) await readEntry(child, out);
+    } while (batch.length);
+  }
+}
+let dragDepth = 0;
+addEventListener('dragenter', e => { e.preventDefault(); if (window.PRESENTER_DATA) return; dragDepth++; document.body.classList.add('drag'); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('drag'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', async e => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('drag');
+  if (window.PRESENTER_DATA) return;
+  const entries = [...e.dataTransfer.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (!entries.length) return;
+  const out = [];
+  for (const en of entries) await readEntry(en, out);
+  if (entries.every(en => en.isFile)) out.forEach(o => o.path = 'Dropped files/' + o.path);
+  loadEntries(out);
+});
+
+/* ================= export for sharing ================= */
+$('export').onclick = async () => {
+  const btn = $('export');
+  btn.disabled = true;
+  while (state.items.some(it => !it.ready)) await new Promise(r => setTimeout(r, 200));   // wait for titles
+  const rootItems = state.items.filter(it => it.rel.toLowerCase() !== 'index.html');
+  const data = {
+    title: state.root,
+    items: rootItems.map(({ rel, title, sub, crumbs, subject }) => ({ rel, title, sub, crumbs, subject }))
+  };
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  const html = PRISTINE.replace(
+    /<script id="presenter-data">[\s\S]*?<\/script>/,
+    '<script id="presenter-data">window.PRESENTER_DATA = ' + json + ';<\/script>');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  a.download = 'index.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  btn.disabled = false;
+  if (rootItems.length < state.items.length) alert('Note: the folder already had an index.html at the top level. It was left out of the list, because the exported file will take its place.');
+};
+
+/* hosted copy: the list of simulations is built in, files load from the same site */
+if (window.PRESENTER_DATA) {
+  const d = window.PRESENTER_DATA;
+  document.body.classList.add('hosted');
+  state.root = d.title;
+  state.items = d.items.map(it => ({ ...it, hosted: true, ready: true,
+    url: it.rel.split('/').map(encodeURIComponent).join('/') }));
+  $('folderName').innerHTML = `${esc(d.title)}<small>${state.items.length} simulation${state.items.length === 1 ? '' : 's'}</small>`;
+  document.title = d.title;
+  if (location.hash === '#sim') history.replaceState(null, '', location.pathname);
+  homeBuilt = false;
+  renderHome();
+}
+</script></body></html>
